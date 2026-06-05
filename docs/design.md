@@ -204,8 +204,12 @@ small set. Phases are config-driven (`train.py: build_phases`):
 
 - Each phase rebuilds the candidate set + guess pool; the model + optimizer continue (warm).
 - Shaping coefficient anneals to 0 over the back half of the whole run.
-- Checkpoints (`model + optimizer + iter`) every `ckpt_every`; **resume** via
-  `uv run train.py --resume <ckpt>` (verified). No auto-restart on crash.
+- Checkpoints (`model + optimizer + iter`) every `ckpt_every`: periodic `iter_N.pt` +
+  `latest.pt` (last iter). Separately, `optimal.pt` holds the **best-eval** checkpoint —
+  updated whenever a greedy eval beats the running best (eval win-rate often peaks before
+  the final iter, so `latest.pt` ≠ best). **resume** via
+  `uv run train.py --resume <ckpt>` (verified, re-seeds the best tracker from `optimal.pt`).
+  No auto-restart on crash.
 - **M1 modules:** `model/{encoder,transformer}.py`, `agents/model_agent.py`,
   `wordle/feedback_table.py`, `rl/{reward,rollout,ppo,curriculum,logging}.py`, `train.py`,
   `config.py`.

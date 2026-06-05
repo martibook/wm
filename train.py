@@ -135,6 +135,16 @@ def main():
     stage = None
     env_steps = 0
 
+    # Track the best-eval checkpoint separately from latest.pt. Seed from an existing
+    # optimal.pt on resume so we don't overwrite a better peak with a worse early eval.
+    opt_path = logger.dir / "checkpoints" / "optimal.pt"
+    best_win = -1.0
+    if args.resume and opt_path.exists():
+        try:
+            best_win = float(torch.load(opt_path, map_location="cpu").get("eval_win_rate", -1.0))
+        except Exception:
+            pass
+
     for gi in range(start_iter + 1, total + 1):
         phase, pidx = phase_at(phases, gi)
         if pidx != cur_phase_idx:
@@ -183,6 +193,14 @@ def main():
             })
             print(f"   [eval {phase['name']}] iter {gi}: greedy win {res.win_rate*100:.1f}% "
                   f"on {stage.A} answers (avg {res.avg_guesses:.2f})")
+
+            if res.win_rate > best_win:
+                best_win = res.win_rate
+                torch.save({"model": model.state_dict(), "optimizer": opt.state_dict(),
+                            "global_iter": gi, "run_id": logger.run_id, "phase": phase["name"],
+                            "eval_win_rate": res.win_rate, "eval_avg_guesses": res.avg_guesses},
+                           opt_path)
+                print(f"   ✓ new optimal: win {res.win_rate*100:.1f}% -> optimal.pt")
 
         if gi % cfg.ckpt_every == 0 or gi == total:
             payload = {"model": model.state_dict(), "optimizer": opt.state_dict(),
