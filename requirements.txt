@@ -1,4 +1,0 @@
-numpy
-rich
-pytest
-torch  # M1: model + PPO (Apple MPS)

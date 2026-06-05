@@ -10,24 +10,24 @@ Full design lives in `docs/`:
 
 ## Setup
 
-Python 3.12. From the `wm/` directory:
+Managed with [uv](https://docs.astral.sh/uv/) (Python 3.12 + deps + commands). From the
+`wm/` directory:
 
 ```bash
-python3.12 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+uv sync
 ```
 
-(Skip this if `.venv/` already exists.)
+This creates `.venv/` and installs everything pinned in `pyproject.toml` / `uv.lock`.
+(Install uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`.)
 
 ## How to run
 
-All commands are run from the `wm/` directory. You can either prefix with `.venv/bin/python`
-(shown below) or activate the venv first with `source .venv/bin/activate`.
+Run everything via `uv run` from the `wm/` directory (it keeps the env in sync first).
 
 ### Run the tests
 
 ```bash
-.venv/bin/python -m pytest
+uv run pytest
 ```
 
 ### Play — watch the game
@@ -35,7 +35,7 @@ All commands are run from the `wm/` directory. You can either prefix with `.venv
 Run `N` games and watch a live, colored showcase, ending with a summary report:
 
 ```bash
-.venv/bin/python play.py --n 100 --agent random --seed 0
+uv run play.py --n 100 --agent random --seed 0
 ```
 
 | Flag | Meaning | Default |
@@ -54,13 +54,15 @@ Run `N` games and watch a live, colored showcase, ending with a summary report:
 - [x] random agent + `evaluate()`
 - [x] `play` runner (rich live dashboard + report)
 
-**M1** — char-transformer + PPO self-play — **pipeline built; tests green (28)**:
-- [x] model (encoder + letter-grounded head), reward+shaping, rollout, PPO, curriculum, logging
+**M1** — char-transformer + PPO self-play — **works; tests green (28)**:
+- [x] model (encoder + **letter-grounded head**), reward+shaping, rollout, PPO, curriculum, logging
 - [x] learns on small sets (Stage A 50 words → 87%)
-- [ ] **generalize to the full 2,315 answers** — open (see `docs/design.md` → M1 status)
+- [x] **generalizes to the full 2,315 answers** — letter-grounded head → **~78%** (free head: 0%)
+- [ ] push higher (more exploration) + the **full 12,972-vocab** generic game
 - [ ] deferred: guess-behavior diagnostics + `games.jsonl` sampling
 
-Run training: `python train.py --curriculum full` (resume: `--resume <ckpt>`).
+Run training: `uv run train.py --curriculum full` (resume: `--resume <ckpt>`).
 
-> The random agent wins ~0% (you must guess the exact word) — the expected baseline. The
-> trained model learns small sets well; full-game generalization is the current open problem.
+> The free per-word head **memorized** (0% on the full set); making each word's score depend
+> on its **letters** (letter-grounded head) is what unlocked generalization. Next: more
+> exploration to push past ~78%, then the full-vocabulary game.

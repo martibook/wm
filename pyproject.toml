@@ -1,0 +1,20 @@
+[project]
+name = "wm"
+version = "0.1.0"
+description = "A tiny character-level transformer trained via RL self-play to play Wordle."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "rich",
+    "torch",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.uv]
+# Application project (scripts, not an installable package) — don't build/install wm itself.
+package = false

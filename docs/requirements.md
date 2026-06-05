@@ -195,8 +195,8 @@ to work through before implementation begins; new items will be logged here._
 - **`play` runner:** human-facing demo named `play` — default **100 games** (configurable
   `--n`), **rich live dashboard** + colored summary report; `evaluate()` is the quiet batched
   stats engine underneath. (decided)
-- **Env / tooling:** `wm/` is its own git repo with its own venv `wm/.venv` (Python 3.12;
-  numpy, rich, pytest; torch added at M1). (done)
+- **Env / tooling:** `wm/` is its own git repo, managed with **uv** (`pyproject.toml` +
+  `uv.lock`; Python 3.12; numpy, rich, pytest, torch). Run via `uv run`. (done)
 - **Verification (§3.4):** Full sweep over all 2,315 answers; report win rate + guess
   distribution. (decided)
 - **Word-list source:** Option B — `LaurentLessard/wordlesolver` (`solutions.txt` +

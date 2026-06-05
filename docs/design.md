@@ -205,7 +205,7 @@ small set. Phases are config-driven (`train.py: build_phases`):
 - Each phase rebuilds the candidate set + guess pool; the model + optimizer continue (warm).
 - Shaping coefficient anneals to 0 over the back half of the whole run.
 - Checkpoints (`model + optimizer + iter`) every `ckpt_every`; **resume** via
-  `python train.py --resume <ckpt>` (verified). No auto-restart on crash.
+  `uv run train.py --resume <ckpt>` (verified). No auto-restart on crash.
 - **M1 modules:** `model/{encoder,transformer}.py`, `agents/model_agent.py`,
   `wordle/feedback_table.py`, `rl/{reward,rollout,ppo,curriculum,logging}.py`, `train.py`,
   `config.py`.
@@ -259,8 +259,7 @@ implemented via `model.apply(_init_weights)` plus a residual-scaling pass.)
 
 First milestone: a **correct, testable Wordle simulator + a watchable runner**. **No model,
 no training.** numpy-only, plus `rich` for the UI. Everything later (model, PPO) plugs into
-these interfaces. Run commands assume the working directory is `wm/` (its own venv:
-`wm/.venv`).
+these interfaces. Managed with **uv** (`uv sync`); run from `wm/` via `uv run`.
 
 ### Modules
 ```
@@ -308,7 +307,7 @@ Single id space = the **12,972 allowed words** (action ids 0–12971). Secrets a
 the 2,315 answers (their indices within `allowed`).
 
 ### The `play` runner
-- CLI (from `wm/`): `python play.py --n 100 --agent random --seed 0 [--quiet] [--slow]`
+- CLI (from `wm/`): `uv run play.py --n 100 --agent random --seed 0 [--quiet] [--slow]`
 - **Default 100 games** (configurable `--n`), random seeded sample of answers.
 - **Live dashboard (rich):** current board with `🟩🟨⬛` tiles + running tally (games, win
   rate, avg), refreshing in place via `rich.Live`.
@@ -319,8 +318,8 @@ the 2,315 answers (their indices within `allowed`).
   training later (M2). `play` is the watchable face; `evaluate()` is the measurement engine.
 
 ### Definition of done
-- `pytest` green from `wm/` — especially `test_feedback.py` duplicate cases (the key gate).
-- `python play.py` runs the live showcase and prints the summary report; the random baseline
+- `uv run pytest` green — especially `test_feedback.py` duplicate cases (the key gate).
+- `uv run play.py` runs the live showcase and prints the summary report; the random baseline
   shows a low (sanity-check) win rate.
 
 ### Build order within M0
