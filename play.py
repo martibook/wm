@@ -62,8 +62,10 @@ def parse_args():
 
 
 def _run_name(meta) -> str:
-    """Folder name encodes ALL run parameters (no timestamp), so identical settings overwrite."""
-    parts = [meta["agent"]]
+    """Folder name = <timestamp>_<all run params> — sorts chronologically + is self-describing.
+    Each run gets its own folder (no overwrite)."""
+    ts = meta["timestamp"].replace("-", "").replace(":", "").replace("T", "-")
+    parts = [ts, meta["agent"]]
     if meta["agent"] == "model":
         ckpt = meta.get("ckpt")
         if ckpt:
@@ -83,10 +85,8 @@ def _run_name(meta) -> str:
 
 
 def save_run(plays_dir, meta, result, games) -> Path:
-    """Persist a play run (summary.json + games.jsonl + report.txt).
-
-    Named by agent + checkpoint (no timestamp), so re-running the same checkpoint overwrites.
-    """
+    """Persist a play run (summary.json + games.jsonl + report.txt) into a timestamped,
+    self-describing folder (see _run_name)."""
     d = Path(plays_dir) / _run_name(meta)
     d.mkdir(parents=True, exist_ok=True)
     (d / "summary.json").write_text(json.dumps({
@@ -105,70 +105,85 @@ def save_run(plays_dir, meta, result, games) -> Path:
     return d
 
 
-def main():
-    args = parse_args()
-    wl = load_wordlist()
-    env = WordleEnv(wl, opener=args.opener)
-    agent = make_agent(args, wl)
-    console = Console()
-
-    rng = np.random.default_rng(args.seed)
+def select_secrets(args, wl, agent, rng):
+    """Pick the secret words to play. With --stage-*, restrict to the trained answer subset
+    and set the agent's guess pool to match; otherwise use all 2,315 answers."""
     if args.stage_answers:
-        from config import device as _device
+        from config import device as _device, pool_size
         from rl.curriculum import Stage
         from wordle.feedback_table import load_pattern_table
-        pool = None if (args.stage_pool is not None and args.stage_pool < 0) else args.stage_pool
-        stage = Stage(wl, load_pattern_table(wl), args.stage_answers, pool, _device(), seed=args.stage_seed)
+        stage = Stage(wl, load_pattern_table(wl), args.stage_answers,
+                      pool_size(args.stage_pool), _device(), seed=args.stage_seed)
         if hasattr(agent, "pool_mask"):
             agent.pool_mask = stage.pool_mask          # match the trained guess pool
         cand_idx = stage.answer_subset_idx
     else:
         cand_idx = np.arange(wl.n_answers)
     n = min(args.n, len(cand_idx))
-    sampled = rng.choice(cand_idx, size=n, replace=False)
-    secret_ids = wl.answer_ids[sampled]
+    secret_ids = wl.answer_ids[rng.choice(cand_idx, size=n, replace=False)]
+    return secret_ids, n
 
-    showcase = (not args.quiet) and console.is_terminal
-    if showcase:
-        from rich.live import Live
 
-        games = []
-        with Live(console=console, refresh_per_second=60, transient=True) as live:
-            for k, sid in enumerate(secret_ids, start=1):
-                secret_word = wl.word_of(int(sid))
-                obs = env.reset(np.array([int(sid)]))
+def run_showcase(env, agent, wl, secret_ids, n, console, slow):
+    """Play games one at a time with a live, colored dashboard; return the GameResults."""
+    from rich.live import Live
 
-                def show():
-                    board = board_text(obs.guesses[0], obs.feedbacks[0], int(obs.turn[0]))
-                    live.update(dashboard_panel(board, k, n, games, bool(obs.done[0]),
-                                                secret_word, bool(obs.won[0])))
+    games = []
+    with Live(console=console, refresh_per_second=60, transient=True) as live:
+        for k, sid in enumerate(secret_ids, start=1):
+            secret_word = wl.word_of(int(sid))
+            obs = env.reset(np.array([int(sid)]))
 
+            def show():
+                board = board_text(obs.guesses[0], obs.feedbacks[0], int(obs.turn[0]))
+                live.update(dashboard_panel(board, k, n, games, bool(obs.done[0]),
+                                            secret_word, bool(obs.won[0])))
+
+            show()
+            if slow:
+                time.sleep(SLOW_DELAY_S)
+            while not env.all_done:
+                obs, _, _, _ = env.step(agent.act(obs))
                 show()
-                if args.slow:
+                if slow:
                     time.sleep(SLOW_DELAY_S)
-                while not env.all_done:
-                    obs, _, _, _ = env.step(agent.act(obs))
-                    show()
-                    if args.slow:
-                        time.sleep(SLOW_DELAY_S)
-                games.append(game_from_obs(obs, 0, secret_word))
-                if not args.slow:
-                    time.sleep(0.02)
-    else:
-        games = play_games(agent, env, secret_ids)
+            games.append(game_from_obs(obs, 0, secret_word))
+            if not slow:
+                time.sleep(0.02)
+    return games
+
+
+def main():
+    args = parse_args()
+    wl = load_wordlist()
+    env = WordleEnv(wl, opener=args.opener)
+    agent = make_agent(args, wl)
+    console = Console()
+    secret_ids, n = select_secrets(args, wl, agent, np.random.default_rng(args.seed))
+
+    games = []
+    try:
+        if (not args.quiet) and console.is_terminal:
+            games = run_showcase(env, agent, wl, secret_ids, n, console, args.slow)
+        else:
+            games = play_games(agent, env, secret_ids)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]interrupted — saving the games played so far[/]")
+
+    if not games:
+        console.print("[dim]no games played; nothing to save[/]")
+        return
 
     result = summarize(games, env.max_guesses)
     console.print(summary_renderable(result, agent.name, args.seed))
-
     if not args.no_save:
-        plays_dir = args.plays_dir or (REPO_ROOT / "plays")
         meta = {
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
-            "agent": agent.name, "ckpt": args.ckpt, "n": len(secret_ids), "seed": args.seed,
+            "agent": agent.name, "ckpt": args.ckpt, "n": len(games), "seed": args.seed,
             "opener": args.opener, "stage_answers": args.stage_answers,
             "stage_pool": args.stage_pool, "stage_seed": args.stage_seed,
         }
-        saved = save_run(plays_dir, meta, result, games)
+        saved = save_run(args.plays_dir or (REPO_ROOT / "plays"), meta, result, games)
         console.print(f"[dim]saved play run -> {saved}[/]")
 
 

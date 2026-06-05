@@ -67,7 +67,7 @@ class LetterGroundedHead(nn.Module):
 
 
 class WordleTransformer(nn.Module):
-    def __init__(self, cfg, allowed_ids, n_words: int = N_WORDS):
+    def __init__(self, cfg, allowed_ids):
         super().__init__()
         d = cfg.d_model
         self.n_layers = cfg.n_layers

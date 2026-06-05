@@ -16,6 +16,11 @@ def device() -> str:
     return "cpu"
 
 
+def pool_size(p):
+    """CLI convention: -1 (or None) means the full vocabulary (no guess-pool restriction)."""
+    return None if (p is not None and p < 0) else p
+
+
 @dataclass
 class ModelConfig:
     d_model: int = 256

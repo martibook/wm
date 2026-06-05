@@ -20,7 +20,7 @@ import numpy as np
 import torch
 
 from agents.model_agent import ModelAgent
-from config import RunConfig, device as get_device
+from config import RunConfig, device as get_device, pool_size
 from eval import evaluate
 from model.transformer import WordleTransformer
 from rl.curriculum import Stage
@@ -37,10 +37,6 @@ def anneal(base, frac, do_anneal=True):
     if not do_anneal or frac < 0.5:
         return base
     return max(0.0, base * (1 - (frac - 0.5) * 2))
-
-
-def pool_size(p):
-    return None if (p is not None and p < 0) else p
 
 
 def build_phases(args):
