@@ -18,7 +18,7 @@ DEV = "cpu"
 
 def _setup(B=32, n_answers=20, pool=60):
     torch.manual_seed(0)
-    model = WordleTransformer(ModelConfig()).to(DEV)
+    model = WordleTransformer(ModelConfig(), wl.allowed_ids).to(DEV)
     env = WordleEnv(wl, opener="salet")
     stage = Stage(wl, PAT, n_answers=n_answers, guess_pool_size=pool, device=DEV, seed=0)
     return model, env, stage
@@ -45,8 +45,8 @@ def test_ppo_step_changes_params_and_is_finite():
     batch, _ = collect_rollout(model, env, stage, RewardConfig(), gamma=0.99,
                                gae_lambda=0.95, shaping_coef=0.8, device=DEV, rng=rng, B=64)
     opt = torch.optim.AdamW(model.parameters(), lr=3e-4)
-    before = model.policy_head.weight.detach().clone()
+    before = model.policy_head.proj.weight.detach().clone()
     cfg = PPOConfig(epochs=2, minibatch=128)
     stats = ppo_update(model, opt, batch, cfg)
     assert all(np.isfinite(stats[k]) for k in ("policy_loss", "value_loss", "entropy", "approx_kl"))
-    assert not torch.allclose(before, model.policy_head.weight)   # params moved
+    assert not torch.allclose(before, model.policy_head.proj.weight)   # params moved

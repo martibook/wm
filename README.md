@@ -54,7 +54,13 @@ Run `N` games and watch a live, colored showcase, ending with a summary report:
 - [x] random agent + `evaluate()`
 - [x] `play` runner (rich live dashboard + report)
 
-**M1+** — char-transformer, PPO self-play, training, eval. See `docs/`.
+**M1** — char-transformer + PPO self-play — **pipeline built; tests green (28)**:
+- [x] model (encoder + letter-grounded head), reward+shaping, rollout, PPO, curriculum, logging
+- [x] learns on small sets (Stage A 50 words → 87%)
+- [ ] **generalize to the full 2,315 answers** — open (see `docs/design.md` → M1 status)
+- [ ] deferred: guess-behavior diagnostics + `games.jsonl` sampling
 
-> The random agent wins ~0% (you must guess the exact word) — that's the expected
-> baseline confirming the harness works. Real win rate comes once the model learns (M1+).
+Run training: `python train.py --curriculum full` (resume: `--resume <ckpt>`).
+
+> The random agent wins ~0% (you must guess the exact word) — the expected baseline. The
+> trained model learns small sets well; full-game generalization is the current open problem.

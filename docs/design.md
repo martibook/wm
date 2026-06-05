@@ -15,12 +15,15 @@ the policy head differs by variant (see `requirements.md` §3.6):
 - **Input / embeddings:** interleaved one-token-per-cell format — each board cell fuses
   four summed `d_model` embeddings (`LetterEmb + FeedbackEmb + TurnEmb + ColEmb`). Max
   sequence ≈ **26 tokens**. See **Input format** below.
-- **Policy head:**
-  - **D1 (baseline):** `h → logits[12,972]` over valid guesses (Categorical). ~3.3M params.
-  - **D2 (stretch):** char-by-char decoder, trie-masked to valid words.
+- **Policy head — letter-grounded (current):** each word's output vector is **built from its
+  letters** (not a free per-word vector), so the policy generalizes across words. ~0.34M
+  params. See **Policy head — letter-grounded** below.
+  - *History:* the original **D1** free head (`Linear(256→12,972)`, ~3.3M params) was built
+    first but **memorizes** rather than generalizes (M1 finding), so it was replaced.
+    **D2** (char-by-char decoder) remains a parked stretch.
 - **Value head:** `h → scalar` (used by PPO for advantages; ignored at eval).
 
-Total D1 ≈ **~6.5M params**.
+Total ≈ **~3.5M params** (letter-grounded head; was ~6.5M with the free D1 head).
 
 ## Input format (interleaved cells)
 
@@ -95,6 +98,27 @@ earlier sketch's separators were redundant).
 **Max sequence length = `CLS` + 5 turns × 5 cells = 26 tokens.** (The model plays turns 2–6,
 so it sees at most 5 completed turns of context.)
 
+## Policy head — letter-grounded
+
+How the model picks a word, and why this replaced the original free head.
+
+**Mechanism.** The trunk's CLS vector `h` is a "wish" (what letters the next guess should
+have). Each of the 12,972 words gets an output vector **computed from its letters**:
+`word_vec = proj([ LetterEmb[ℓ] + PosEmb[pos] for the 5 letters ])`. A word's score =
+`h · word_vec`, so *"I want these letters"* matches *"I'm spelled with these letters."*
+(`model/transformer.py: LetterGroundedHead`.)
+
+**Why (the M1 finding).** The original head was a free `Linear(256→12,972)` — one **blank**
+learned vector per word, learnable only by **memorizing** words one at a time. It reached 87%
+on a 50-word subset but **did not generalize** (Phase B on 2,315 words sat at the
+memorization floor ~7%; a held-out test gave **76% seen vs 2% unseen**). Building each word's
+vector from its letters lets letter-knowledge transfer to **all** words at once.
+
+**Status — OPEN.** Letter-grounding makes the general rule *expressible*, but a small training
+set can still be memorized via the trunk's per-secret feedback "fingerprint," so true
+generalization also needs training on a set too large to memorize (the full 2,315). The
+decisive long full-set run is still pending. See **M1 status** below.
+
 ## Reward function
 
 The reward is the **only** thing that tells the model what "good play" means — it maximizes
@@ -150,8 +174,11 @@ Let `k` = guesses used when solved (includes the fixed turn-1 opener; the model 
   - `|consistent answers|` is cheap to compute from a precomputed `feedback[guess, answer]`
     table.
 - **Discount:** short episodes → `γ = 0.99` (or `1.0`).
-- **Action space:** full 12,972 valid words every turn — **no masking, no consistency
-  penalties** (Normal mode).
+- **Action space:** Normal mode — **no consistency/hard-mode masking** (the model may guess
+  any word, probes included). The *final* target is the full 12,972-word vocabulary; during
+  the **curriculum** the legal guess pool is restricted per stage and grown toward full (see
+  **Curriculum & training** below). That pool restriction is a training ramp, **not** the
+  hard-mode consistency masking we ruled out.
 - **Exact repeats:** not masked — the reward already gives a repeat nothing (narrows nothing →
   zero shaping) and it wastes a turn, so the model learns to avoid it. Tracked via the
   `repeat_rate` diagnostic (see `logging.md`), not forbidden.
@@ -163,6 +190,32 @@ Let `k` = guesses used when solved (includes the fixed turn-1 opener; the model 
 Absolute scale isn't critical (PPO normalizes advantages); what matters is the **ordering**:
 a **win (≈10)** is the top prize, a full game's **warmer rewards (≈3–5)** are a meaningful but
 smaller chunk, and the **speed bonus (≈2)** is just a gentle tiebreaker between safe wins.
+
+## Curriculum & training (M1)
+
+Training ramps difficulty so the model learns a general strategy instead of memorizing a
+small set. Phases are config-driven (`train.py: build_phases`):
+
+| Phase | Answers (secrets) | Guess pool | Default iters |
+|---|---|---|---|
+| A | 200-word subset | ~800 | 300 |
+| B | all 2,315 | the 2,315 answers | 1,500 |
+| C | all 2,315 | full 12,972 (the real game) | 3,000 |
+
+- Each phase rebuilds the candidate set + guess pool; the model + optimizer continue (warm).
+- Shaping coefficient anneals to 0 over the back half of the whole run.
+- Checkpoints (`model + optimizer + iter`) every `ckpt_every`; **resume** via
+  `python train.py --resume <ckpt>` (verified). No auto-restart on crash.
+- **M1 modules:** `model/{encoder,transformer}.py`, `agents/model_agent.py`,
+  `wordle/feedback_table.py`, `rl/{reward,rollout,ppo,curriculum,logging}.py`, `train.py`,
+  `config.py`.
+
+### M1 status — OPEN
+The pipeline works end-to-end and **learns on small sets** (Stage A 50→87%). The unsolved
+problem is **generalization to the full answer set**: the free D1 head memorized; the
+letter-grounded head is the fix-in-progress, pending a long full-set run (small-set tests
+can't validate it — they're memorizable). **Deferred** from the original plan and **not yet
+built**: `rl/diagnostics.py` and `games.jsonl` sampling (see `logging.md`).
 
 ## Model initialization
 
@@ -186,12 +239,12 @@ implemented via `model.apply(_init_weights)` plus a residual-scaling pass.)
 
 ### Heads — RL-specific
 
-- **Policy head:** initialize with a **tiny gain (≈0.01)** → near-zero weights → the
-  **initial policy is ≈ uniform** over all ~12,972 guesses (max entropy ≈ `log 12972 ≈ 9.5`
-  nats). This makes the agent a broad explorer at the start of self-play instead of
-  fixating early. Standard well-tuned-PPO practice.
-- **Value head:** normal/small gain (≈1.0) → initial value estimates near a neutral
-  baseline.
+- **Policy head (letter-grounded):** initialized by the default `apply(_init_weights)` — its
+  letter/pos embeddings and the `proj` linear at `std=0.02`. The modest `proj` scale already
+  keeps initial logits small, so the **initial policy is ≈ uniform** over the words (measured
+  entropy ≈ **9.44** ≈ `log 12972`) — a broad explorer at the start. (No special small-gain
+  step is needed; the original free-head used `std≈0.02·0.01`, which no longer applies.)
+- **Value head:** normal gain (`std=0.02`) → initial value estimates near a neutral baseline.
 
 ### Notes
 - **Alternative:** orthogonal init (hidden gain `√2`, policy-output gain `0.01`, value-output

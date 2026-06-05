@@ -7,6 +7,9 @@ from torch.distributions import Categorical
 from config import ModelConfig
 from model.encoder import SEQ_LEN
 from model.transformer import N_WORDS, WordleTransformer
+from wordle.words import load_wordlist
+
+wl = load_wordlist()
 
 
 def _toks(B, valid=True):
@@ -19,13 +22,13 @@ def _toks(B, valid=True):
 
 
 def test_param_count_around_6_5M():
-    m = WordleTransformer(ModelConfig())
+    m = WordleTransformer(ModelConfig(), wl.allowed_ids)
     n = sum(p.numel() for p in m.parameters())
-    assert 5_500_000 < n < 7_500_000, n
+    assert 2_500_000 < n < 4_500_000, n
 
 
 def test_forward_shapes():
-    m = WordleTransformer(ModelConfig())
+    m = WordleTransformer(ModelConfig(), wl.allowed_ids)
     toks, mask = _toks(4)
     logits, value = m(toks, mask)
     assert logits.shape == (4, N_WORDS)
@@ -34,7 +37,7 @@ def test_forward_shapes():
 
 def test_initial_policy_near_uniform():
     torch.manual_seed(0)
-    m = WordleTransformer(ModelConfig())
+    m = WordleTransformer(ModelConfig(), wl.allowed_ids)
     toks, mask = _toks(8)
     logits, _ = m(toks, mask)
     ent = Categorical(logits=logits).entropy().mean().item()
@@ -43,7 +46,7 @@ def test_initial_policy_near_uniform():
 
 def test_act_evaluate_actions_parity():
     torch.manual_seed(0)
-    m = WordleTransformer(ModelConfig())
+    m = WordleTransformer(ModelConfig(), wl.allowed_ids)
     toks, mask = _toks(4)
     a, lp, v, ent = m.act(toks, mask)
     lp2, ent2, v2 = m.evaluate_actions(toks, mask, a)

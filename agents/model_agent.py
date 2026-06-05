@@ -28,12 +28,14 @@ class ModelAgent:
     def untrained(cls, wl, dev=None, seed: int = 0, greedy: bool = True):
         dev = dev or default_device()
         torch.manual_seed(seed)
-        model = WordleTransformer(ModelConfig()).to(dev)
+        model = WordleTransformer(ModelConfig(), wl.allowed_ids).to(dev)
         return cls(model, dev, greedy=greedy)
 
     @classmethod
     def from_checkpoint(cls, path, wl, dev=None, greedy: bool = True):
         dev = dev or default_device()
-        model = WordleTransformer(ModelConfig()).to(dev)
-        model.load_state_dict(torch.load(path, map_location=dev))
+        model = WordleTransformer(ModelConfig(), wl.allowed_ids).to(dev)
+        obj = torch.load(path, map_location=dev)
+        state = obj["model"] if isinstance(obj, dict) and "model" in obj else obj
+        model.load_state_dict(state)
         return cls(model, dev, greedy=greedy)

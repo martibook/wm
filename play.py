@@ -56,10 +56,24 @@ def parse_args():
     return ap.parse_args()
 
 
+def _run_name(meta) -> str:
+    """Folder name = agent (+ checkpoint id), no timestamp. Same checkpoint => same folder."""
+    if meta["agent"] != "model":
+        return meta["agent"]                      # e.g. "random"
+    ckpt = meta.get("ckpt")
+    if not ckpt:
+        return "model_untrained"
+    p = Path(ckpt)
+    cid = f"{p.parent.parent.name}_{p.stem}" if p.parent.name == "checkpoints" else p.stem
+    return f"model_{cid}"
+
+
 def save_run(plays_dir, meta, result, games) -> Path:
-    """Persist a play run: summary.json + games.jsonl + a human-readable report.txt."""
-    run_id = datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + f"_{meta['agent']}"
-    d = Path(plays_dir) / run_id
+    """Persist a play run (summary.json + games.jsonl + report.txt).
+
+    Named by agent + checkpoint (no timestamp), so re-running the same checkpoint overwrites.
+    """
+    d = Path(plays_dir) / _run_name(meta)
     d.mkdir(parents=True, exist_ok=True)
     (d / "summary.json").write_text(json.dumps({
         **meta,

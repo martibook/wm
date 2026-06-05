@@ -120,7 +120,10 @@ Four streams per run (folder `wm/runs/<run_id>/`), all keyed by `iter`:
 - `games.jsonl` — a *sampled* subset of semantic game transcripts (guesses, `BYG` feedback,
   rewards, candidate counts, per-turn behavior `flags`) for debugging.
 
-Includes **guess-behavior diagnostics** (`repeat_rate`, `inconsistent_rate`,
+> **M1 status:** built = `config.json` / `metrics.jsonl` / `eval.jsonl`. **`games.jsonl`
+> sampling and the guess-behavior diagnostics below are planned, not yet implemented.**
+
+Includes (planned) **guess-behavior diagnostics** (`repeat_rate`, `inconsistent_rate`,
 `reused_gray_rate`, `ignored_green_rate`, `misplaced_yellow_rate`) — descriptive rates over
 training, **not** penalties (see §3.10).
 
@@ -129,11 +132,13 @@ metric/eval but only a sampled subset of full games (self-play volume is huge). 
 **see `docs/logging.md`.**
 
 ### 3.10 Reward function — DECIDED ✅
-- **Normal mode / full freedom:** the model may guess any of the 12,972 valid words every
-  turn. **No** action-space masking and **no** consistency penalties (using a gray letter,
-  moving a green, dropping a yellow, etc. are *allowed* — they enable probe guesses, which
-  are often optimal). Forcing consistency = Hard Mode, which loses the probe tactic and
-  likely caps win rate below 100%.
+- **Normal mode / full freedom:** the model may guess any valid word every turn. **No**
+  consistency/hard-mode masking and **no** consistency penalties (using a gray letter, moving
+  a green, dropping a yellow, etc. are *allowed* — they enable probe guesses, which are often
+  optimal). Forcing consistency = Hard Mode, which loses the probe tactic and likely caps win
+  rate below 100%. *(Note: during the training **curriculum** the legal guess pool is
+  restricted per stage and grown toward the full 12,972 — a training ramp, not hard-mode
+  masking; see `docs/design.md` → Curriculum.)*
 - **Winning dominates speed:** big reward for any win, tiny bonus for fewer guesses
   (`R_win = 10 + 0.5·(6−k)`, loss `= 0`). The model never gambles a win for speed.
 - **Shaping ON ("warmer" hints):** potential-based candidate-set reduction
@@ -141,7 +146,7 @@ metric/eval but only a sampled subset of full games (self-play volume is huge). 
   warmer rewards ≈ **⅓–½ of a win** (default coef `0.8`), **never ≥ a win**, annealed to 0.
   Rewards smart narrowing/probes, nothing for wasteful repeats, provably non-distorting.
   (Default; pure terminal reward is the alternative.)
-- **No penalties** (consistency/repeat/validity): D1's word-head only emits valid words, and
+- **No penalties** (consistency/repeat/validity): the policy head only emits valid words, and
   a repeated guess is already self-punishing via the speed term + zero shaping.
 - **Exact repeats: not masked.** Re-guessing an already-tried word is the one always-wasteful
   move, but we rely on the reward to teach the model to avoid it (it earns nothing + wastes a
@@ -165,8 +170,9 @@ to work through before implementation begins; new items will be logged here._
   learned policy. 100% aspirational, ~98–99% acceptable. (decided)
 - **Rules (§3.2):** Standard Wordle — 5 letters, 6 guesses, duplicate-aware feedback. (decided)
 - **Word list (§3.3):** Official NYT — ~2,315 answers + ~12,972 valid guesses. (decided)
-- **Learning signal (§3.6):** RL self-play (PPO from scratch); D1 word-head baseline,
-  D2 char-trie-decoder as stretch. (decided)
+- **Learning signal (§3.6):** RL self-play (PPO from scratch). Policy head: original **D1**
+  free word-head → **replaced by a letter-grounded head** (M1 — the free head memorized;
+  letter-grounding generalizes). **D2** char-decoder still a parked stretch. (updated M1)
 - **Efficiency (§3.7):** Win rate primary; avg guess count secondary (speed-scaled reward). (decided)
 - **Opening guess (§3.8):** Fixed strong opener `salet` on turn 1 (config-driven); model
   plays turns 2–6, in both training and eval. (decided)
@@ -195,10 +201,13 @@ to work through before implementation begins; new items will be logged here._
   distribution. (decided)
 - **Word-list source:** Option B — `LaurentLessard/wordlesolver` (`solutions.txt` +
   `nonsolutions.txt`); vendored to `wm/data/` (2,315 answers / 12,972 guesses). (done)
+- **M1 findings (OPEN):** pipeline learns on small sets (Stage A 50→87%) but the free D1 head
+  **does not generalize** to the full answer set (it memorizes; held-out 76% seen / 2%
+  unseen). Switched to a **letter-grounded head**; the decisive long full-set run is still
+  pending. `rl/diagnostics.py` + `games.jsonl` sampling **deferred / not built**. See
+  `docs/design.md` → Policy head / M1 status. (open)
 
 ## 6. Reference: detailed design
-- **`docs/design.md`** — technical design (model architecture + **initialization** recipe
-  so far; env / PPO / reward / curriculum details to be added as we lock them).
-- **`docs/logging.md`** — learning-history logging schemas.
-- A fuller implementation plan (env, PPO hyperparameters, curriculum, build order, risks)
-  was drafted in discussion and will be folded into `docs/design.md` as we build.
+- **`docs/design.md`** — technical design: model architecture (**letter-grounded head**),
+  input format, reward, model init, **curriculum & M1 status**.
+- **`docs/logging.md`** — logging schemas (with built-vs-planned status).

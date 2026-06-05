@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.distributions import Categorical
@@ -36,8 +37,37 @@ class Block(nn.Module):
         return x
 
 
+class LetterGroundedHead(nn.Module):
+    """Policy head whose per-word vector is BUILT FROM the word's letters.
+
+    Instead of a free vector per word (which can only be memorized), each word's output
+    vector is composed from its 5 letter+position embeddings. So "I want these letters"
+    (the trunk's CLS vector h) can match "I'm spelled with these letters" (a word) — and
+    that knowledge generalizes across all 12,972 words at once.
+
+      logit(word) = h . word_vector(word),   word_vector = proj( [letter+pos embeddings] )
+    """
+
+    def __init__(self, d_model: int, allowed_ids):
+        super().__init__()
+        words = torch.as_tensor(np.asarray(allowed_ids), dtype=torch.long)   # [N, 5]
+        self.register_buffer("words", words)
+        self.n_words, self.word_len = words.shape
+        self.letter_emb = nn.Embedding(26, d_model)
+        self.pos_emb = nn.Embedding(self.word_len, d_model)
+        self.proj = nn.Linear(self.word_len * d_model, d_model)
+
+    def word_vectors(self) -> torch.Tensor:
+        pos = torch.arange(self.word_len, device=self.words.device)
+        e = self.letter_emb(self.words) + self.pos_emb(pos)[None]            # [N, 5, d]
+        return self.proj(e.reshape(self.n_words, -1))                       # [N, d]
+
+    def forward(self, h):
+        return h @ self.word_vectors().t()                                  # [B, N]
+
+
 class WordleTransformer(nn.Module):
-    def __init__(self, cfg, n_words: int = N_WORDS):
+    def __init__(self, cfg, allowed_ids, n_words: int = N_WORDS):
         super().__init__()
         d = cfg.d_model
         self.n_layers = cfg.n_layers
@@ -49,7 +79,7 @@ class WordleTransformer(nn.Module):
             [Block(d, cfg.n_heads, cfg.d_ff, cfg.dropout) for _ in range(cfg.n_layers)]
         )
         self.ln_f = nn.LayerNorm(d)
-        self.policy_head = nn.Linear(d, n_words)
+        self.policy_head = LetterGroundedHead(d, allowed_ids)
         self.value_head = nn.Linear(d, 1)
 
         self.apply(self._init_weights)
@@ -75,8 +105,8 @@ class WordleTransformer(nn.Module):
             blk.w2.weight.data.mul_(scale)
 
     def _init_heads(self):
-        nn.init.normal_(self.policy_head.weight, std=0.02 * 0.01)  # near-uniform initial policy
-        nn.init.zeros_(self.policy_head.bias)
+        # The letter-grounded policy head is initialized by apply(_init_weights); its
+        # default-scale proj keeps initial logits small => near-uniform starting policy.
         nn.init.normal_(self.value_head.weight, std=0.02)
         nn.init.zeros_(self.value_head.bias)
 
