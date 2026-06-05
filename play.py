@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import io
 import json
 import time
 from dataclasses import asdict
@@ -57,15 +58,24 @@ def parse_args():
 
 
 def _run_name(meta) -> str:
-    """Folder name = agent (+ checkpoint id), no timestamp. Same checkpoint => same folder."""
-    if meta["agent"] != "model":
-        return meta["agent"]                      # e.g. "random"
-    ckpt = meta.get("ckpt")
-    if not ckpt:
-        return "model_untrained"
-    p = Path(ckpt)
-    cid = f"{p.parent.parent.name}_{p.stem}" if p.parent.name == "checkpoints" else p.stem
-    return f"model_{cid}"
+    """Folder name encodes ALL run parameters (no timestamp), so identical settings overwrite."""
+    parts = [meta["agent"]]
+    if meta["agent"] == "model":
+        ckpt = meta.get("ckpt")
+        if ckpt:
+            p = Path(ckpt)
+            parts.append(f"{p.parent.parent.name}_{p.stem}" if p.parent.name == "checkpoints" else p.stem)
+        else:
+            parts.append("untrained")
+    parts += [f"n{meta['n']}", f"seed{meta['seed']}"]
+    if meta.get("opener") and meta["opener"] != "salet":
+        parts.append(f"op{meta['opener']}")
+    if meta.get("stage_answers"):
+        sp = meta.get("stage_pool")
+        parts += [f"sa{meta['stage_answers']}",
+                  f"sp{'full' if sp in (None, -1) else sp}",
+                  f"ss{meta.get('stage_seed', 0)}"]
+    return "_".join(str(x) for x in parts)
 
 
 def save_run(plays_dir, meta, result, games) -> Path:
@@ -85,7 +95,7 @@ def save_run(plays_dir, meta, result, games) -> Path:
     with open(d / "games.jsonl", "w") as f:
         for g in games:
             f.write(json.dumps(asdict(g)) + "\n")
-    rec = Console(record=True, width=80, force_terminal=True)
+    rec = Console(record=True, width=80, force_terminal=True, file=io.StringIO())
     rec.print(summary_renderable(result, meta["agent"], meta["seed"]))
     (d / "report.txt").write_text(rec.export_text())
     return d
