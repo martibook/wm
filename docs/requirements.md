@@ -211,3 +211,5 @@ to work through before implementation begins; new items will be logged here._
 - **`docs/design.md`** — technical design: model architecture (**letter-grounded head**),
   input format, reward, model init, **curriculum & M1 status**.
 - **`docs/logging.md`** — logging schemas (with built-vs-planned status).
+- **`docs/results.md`** — experiments log: each training setting, its win-rate ceiling, and
+  constraints.

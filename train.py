@@ -78,6 +78,9 @@ def parse_args():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--eval-every", type=int, default=None)
     ap.add_argument("--ckpt-every", type=int, default=None)
+    ap.add_argument("--entropy", type=float, default=None, help="entropy coef (exploration)")
+    ap.add_argument("--shaping", type=float, default=None, help="shaping coef (narrowing hints)")
+    ap.add_argument("--no-anneal-shaping", action="store_true", help="keep shaping on all run")
     ap.add_argument("--resume", default=None, help="checkpoint to resume from")
     return ap.parse_args()
 
@@ -91,6 +94,12 @@ def main():
         cfg.eval_every = args.eval_every
     if args.ckpt_every:
         cfg.ckpt_every = args.ckpt_every
+    if args.entropy is not None:
+        cfg.ppo.entropy_coef = args.entropy
+    if args.shaping is not None:
+        cfg.reward.shaping_coef = args.shaping
+    if args.no_anneal_shaping:
+        cfg.reward.anneal_shaping = False
 
     dev = get_device()
     torch.manual_seed(cfg.seed)
