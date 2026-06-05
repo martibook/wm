@@ -46,7 +46,7 @@ def make_agent(args, wl):
 def parse_args():
     ap = argparse.ArgumentParser(prog="play", description="Watch an agent play Wordle.")
     ap.add_argument("--n", type=int, default=100, help="number of games (default 100)")
-    ap.add_argument("--agent", default="random", choices=list(AGENT_CHOICES))
+    ap.add_argument("--agent", default="model", choices=list(AGENT_CHOICES))
     ap.add_argument("--ckpt", default=None, help="model checkpoint (for --agent model)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--opener", default="salet")
@@ -56,7 +56,6 @@ def parse_args():
     ap.add_argument("--stage-seed", type=int, default=0, help="stage seed (match training)")
     ap.add_argument("--quiet", action="store_true", help="summary only, no live showcase")
     ap.add_argument("--slow", action="store_true", help="animate tile-by-tile")
-    ap.add_argument("--plays-dir", default=None, help="where to save play runs (default wm/plays)")
     ap.add_argument("--no-save", action="store_true", help="don't persist this run")
     return ap.parse_args()
 
@@ -84,10 +83,10 @@ def _run_name(meta) -> str:
     return "_".join(str(x) for x in parts)
 
 
-def save_run(plays_dir, meta, result, games) -> Path:
+def save_run(meta, result, games) -> Path:
     """Persist a play run (summary.json + games.jsonl + report.txt) into a timestamped,
-    self-describing folder (see _run_name)."""
-    d = Path(plays_dir) / _run_name(meta)
+    self-describing folder under wm/plays (see _run_name)."""
+    d = REPO_ROOT / "plays" / _run_name(meta)
     d.mkdir(parents=True, exist_ok=True)
     (d / "summary.json").write_text(json.dumps({
         **meta,
@@ -183,7 +182,7 @@ def main():
             "opener": args.opener, "stage_answers": args.stage_answers,
             "stage_pool": args.stage_pool, "stage_seed": args.stage_seed,
         }
-        saved = save_run(args.plays_dir or (REPO_ROOT / "plays"), meta, result, games)
+        saved = save_run(meta, result, games)
         console.print(f"[dim]saved play run -> {saved}[/]")
 
 

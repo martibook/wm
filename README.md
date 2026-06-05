@@ -35,13 +35,14 @@ uv run pytest
 Run `N` games and watch a live, colored showcase, ending with a summary report:
 
 ```bash
-uv run play.py --n 100 --agent random --seed 0
+uv run play.py --n 100 --ckpt runs/<run>/checkpoints/latest.pt --seed 0
 ```
 
 | Flag | Meaning | Default |
 |---|---|---|
 | `--n` | number of games | `100` |
-| `--agent` | which player (`random` for now) | `random` |
+| `--agent` | which player (`model` or `random`) | `model` |
+| `--ckpt` | model checkpoint to load (for `--agent model`; untrained if omitted) | `None` |
 | `--seed` | random seed (reproducible) | `0` |
 | `--quiet` | summary only, no live showcase | off |
 | `--slow` | animate tile-by-tile | off |

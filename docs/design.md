@@ -307,7 +307,8 @@ Single id space = the **12,972 allowed words** (action ids 0–12971). Secrets a
 the 2,315 answers (their indices within `allowed`).
 
 ### The `play` runner
-- CLI (from `wm/`): `uv run play.py --n 100 --agent random --seed 0 [--quiet] [--slow]`
+- CLI (from `wm/`): `uv run play.py --n 100 --ckpt runs/<run>/checkpoints/latest.pt --seed 0 [--quiet] [--slow]`
+  (default `--agent model`; pass `--agent random` for the baseline)
 - **Default 100 games** (configurable `--n`), random seeded sample of answers.
 - **Live dashboard (rich):** current board with `🟩🟨⬛` tiles + running tally (games, win
   rate, avg), refreshing in place via `rich.Live`.
