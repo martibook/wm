@@ -66,10 +66,13 @@ def summarize(games: list[GameResult], max_guesses: int = 6) -> EvalResult:
     )
 
 
-def evaluate(agent, env: WordleEnv, secret_ids: np.ndarray) -> EvalResult:
+def play_games(agent, env: WordleEnv, secret_ids: np.ndarray) -> list[GameResult]:
     secret_ids = np.asarray(secret_ids, dtype=np.int64)
     obs = env.reset(secret_ids)
     while not env.all_done:
         obs, _, _, _ = env.step(agent.act(obs))
-    games = [game_from_obs(obs, i, env.wl.word_of(int(secret_ids[i]))) for i in range(len(secret_ids))]
-    return summarize(games, env.max_guesses)
+    return [game_from_obs(obs, i, env.wl.word_of(int(secret_ids[i]))) for i in range(len(secret_ids))]
+
+
+def evaluate(agent, env: WordleEnv, secret_ids: np.ndarray) -> EvalResult:
+    return summarize(play_games(agent, env, secret_ids), env.max_guesses)
