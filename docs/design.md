@@ -204,12 +204,12 @@ small set. Phases are config-driven (`train.py: build_phases`):
 
 - Each phase rebuilds the candidate set + guess pool; the model + optimizer continue (warm).
 - Shaping coefficient anneals to 0 over the back half of the whole run.
-- **Results so far:** phase B (answer-pool game) reaches **~98%** greedy eval (run
+- **Results:** phase B (answer-pool game) reaches **~98%** greedy eval (run
   `20260605-105918`, peak iter 2200). Phase C (full 12,972-word vocab) is best reached by
   **warm-starting** from that checkpoint into a single full-vocab stage
   (`--resume iter_2200.pt --answers 2315 --pool -1`) rather than retraining A→B from cold:
-  full-vocab eval recovers from ~56% (the restricted model let loose on the full vocab) back
-  toward the ~98% ceiling within a few hundred iters (run `20260605-155725`). When
+  full-vocab eval recovered from **61% → 97.7%** (run `20260605-155725`, best `optimal.pt`
+  @4750; 500-game confirmation 97.6%) — within ~0.6pt of the answer-pool ceiling. When
   warm-starting a *new* experiment, strip the checkpoint's `run_id` so `--resume` writes a
   fresh run dir instead of appending to (and overwriting) the source run.
 - Checkpoints (`model + optimizer + iter`) every `ckpt_every`: periodic `iter_N.pt` +

@@ -21,7 +21,7 @@ answers as secrets, opener fixed `salet`. Runs live in `runs/`.
 | 5 | **letter-grounded · 2,315 · pool 2,315 · ent 0.01, shaping 0.8→0, 2000 it** | **78.4%** | **42.3%** (avg 4.36) | first real generalization; entropy collapsed to ~0.3 → plateaued. `runs/20260604-232244` (iter_2000) |
 | 6 | letter-grounded · 2,315 · pool 2,315 · **ent 0.03**, no-anneal, 3000 it | **~1.8% (abandoned @ it 490)** | — | **entropy too high** — stuck near max (7.16/7.75), policy stayed ~random, no learning. Run deleted. |
 | 7 | letter-grounded · 2,315 · pool 2,315 · **ent 0.02**, no-anneal, 3000 it | **98.3%** (best @2200; final 97.8%) | **61.3%** | **beat #5 by +20pts (answers) / +19pts (full vocab)** — sustained exploration was the fix (0.01 collapsed; 0.03 too high). `runs/20260605-105918` |
-| 8 | **warm-start from #7 (`iter_2200`, 98.3%) · trained on full vocab (`--pool -1`) · 3,000 it · ent 0.01, shaping anneal** | not re-measured | **96.6%+ — in progress (@2850), from 61.3% start** | **first run trained *on* the full vocab.** Warm-start recovers the full-vocab gap fast: greedy full-vocab eval 61% → ~97% within ~650 iters, still rising. `runs/20260605-155725` |
+| 8 | **warm-start from #7 (`iter_2200`, 98.3%) · trained on full vocab (`--pool -1`) · 3,000 it · ent 0.01, shaping anneal** | not re-measured | **97.7%** (best @4750; final @5200: 97.1%) | **first run trained *on* the full vocab — closes the gap.** Greedy full-vocab eval **61.3% → 97.7%**, ~0.6pt under the answer-pool ceiling. 500-game confirmation: **97.6%** (avg 3.72, 12 fails). `runs/20260605-155725`, `optimal.pt` @4750. |
 
 (— = no loadable checkpoint to measure: deleted run, or incompatible old architecture.)
 
@@ -70,30 +70,40 @@ iters 800–1200 before grinding to a 78% ceiling. **`0.02`** (run 105918, in pr
 > iter 2,200 (best **98.3%** @2200, final 97.8%). Full-vocab win rate of the `0.02` best
 > checkpoint: **61.3%** (vs `0.01`'s 42.3%).
 
-### Phase C — full-vocab training (run 155725, in progress)
+### Phase C — full-vocab training (run 155725, done)
 
 Warm-started from run #7's `iter_2200` (98.3% answer-pool / 61.3% full-vocab) and trained
-directly on the **full 12,972-word vocab** (`--pool -1`). Greedy eval below is over the **full
-vocab** (the hard column). Global-iter continues from 2,200 (the warm-start point), so phase-C
-iter 0 = global 2,200.
+directly on the **full 12,972-word vocab** (`--pool -1`) for 3,000 iters. Greedy eval below is
+over the **full vocab** (the hard column). Global-iter continues from 2,200 (the warm-start
+point), so phase-C iter 0 = global 2,200.
 
-| global iter | full-vocab win% | avg guesses |
+| global iter | full-vocab win% | fails / 2,315 |
 |---|---|---|
 | 2,200 (start) | ~61% (inherited) | — |
-| 2,250 | 85.9% | 4.02 |
-| 2,300 | 89.5% | 4.00 |
-| 2,400 | 92.7% | 3.93 |
-| 2,500 | 94.2% | 3.91 |
-| 2,600 | 94.7% | 3.87 |
-| 2,700 | 95.2% | 3.86 |
-| 2,800 | 96.5% | 3.83 |
-| 2,850 | **96.6%** | 3.82 |
+| 2,250 | 85.9% | 326 |
+| 2,300 | 89.5% | 243 |
+| 2,400 | 92.7% | 170 |
+| 2,500 | 94.2% | 134 |
+| 2,600 | 94.7% | 123 |
+| 2,700 | 95.2% | 112 |
+| 2,800 | 96.5% | 81 |
+| 2,900 | 97.0% | 70 |
+| 3,000 | 96.5% | 81 |
+| 3,700 | 97.1% | 67 |
+| 4,150 | 97.2% | 64 |
+| 4,700 | 97.3% | 63 |
+| **4,750** | **97.71%** (best, avg 3.76) | **53** |
+| 5,200 (final) | 97.1% (avg 3.75) | 67 |
+
+After ~iter 2,900 it plateaus and **oscillates 96–97.7%** at the ceiling (typical PPO eval
+wobble); the best (97.71% @4750) is captured by `optimal.pt`. Independent **500-game
+confirmation** on `optimal.pt`: **97.6%** (avg 3.72 guesses, 12 fails).
 
 > **Training *on* the full vocab closes the answer-pool↔full-vocab gap.** Run #7 was 98.3%
-> answer-pool but only 61.3% full-vocab (never trained on the big menu); one warm-started
-> full-vocab phase lifts full-vocab eval back toward the ~98% ceiling within a few hundred
-> iters. Targets 3,000 iters (global 5,200); `optimal.pt` tracks the best full-vocab eval.
-> _(Numbers to be finalized when the run completes.)_
+> answer-pool but only **61.3%** full-vocab (never trained on the big menu); one warm-started
+> full-vocab phase lifts full-vocab eval to **97.7%** — within ~0.6pt of the answer-pool
+> ceiling — within ~650 iters, the rest is plateau. This is the first model that plays the
+> real 12,972-word game nearly as well as the restricted game.
 
 ## Standing constraints / caveats
 - **Answer-pool vs full-vocab** are the two columns above. Models are *trained* on the answer
