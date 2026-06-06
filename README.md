@@ -59,11 +59,22 @@ uv run play.py --n 100 --ckpt runs/<run>/checkpoints/latest.pt --seed 0
 - [x] model (encoder + **letter-grounded head**), reward+shaping, rollout, PPO, curriculum, logging
 - [x] learns on small sets (Stage A 50 words → 87%)
 - [x] **generalizes to the full 2,315 answers** — letter-grounded head → **~78%** (free head: 0%)
-- [ ] push higher (more exploration) + the **full 12,972-vocab** generic game
+- [x] **answer-pool game → ~98%** (2,315 answers, 2,315-word guess pool) after the exploration
+      fix; run `20260605-105918`, peak at iter 2200.
+- [~] **full 12,972-vocab generic game** (phase C) — *in progress*. Warm-started from the 98%
+      checkpoint (`iter_2200.pt`) into a single full-vocab stage (`--answers 2315 --pool -1`);
+      run `20260605-155725`. Greedy full-vocab eval climbed **56% → ~96%** within ~450 iters and
+      still rising toward the restricted-pool ceiling.
 - [ ] deferred: guess-behavior diagnostics + `games.jsonl` sampling
 
-Run training: `uv run train.py --curriculum full` (resume: `--resume <ckpt>`).
+Run training:
+- Full curriculum (A→B→C, cold): `uv run train.py --curriculum full`
+- Full-vocab from a strong checkpoint (warm-start): `uv run train.py --resume <ckpt> --answers 2315 --pool -1 --iters <N>`
+  (strip the checkpoint's `run_id` first so it writes a fresh run dir instead of clobbering the source run)
 
 > The free per-word head **memorized** (0% on the full set); making each word's score depend
-> on its **letters** (letter-grounded head) is what unlocked generalization. Next: more
-> exploration to push past ~78%, then the full-vocabulary game.
+> on its **letters** (letter-grounded head) is what unlocked generalization. The exploration fix
+> then took the answer-pool game to ~98%. The full 12,972-word vocab is the last gap: a model
+> trained only on the restricted pool collapses to ~56% when allowed to guess any word, so
+> phase C trains directly on the full action space — warm-starting from the 98% checkpoint
+> recovers most of that performance fast.
