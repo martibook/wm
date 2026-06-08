@@ -3,6 +3,10 @@
 Train a tiny **character-level transformer** to play Wordle via **reinforcement-learning
 self-play**. Target: **100% win rate**. Runs entirely on a laptop (Apple Silicon / MPS).
 
+![wm playing 100 games on the full vocabulary — 99% win rate](docs/wm.png)
+
+*The trained model (`optimal.pt`) playing 100 games on the full 12,972-word vocabulary.*
+
 Full design lives in `docs/`:
 - `docs/requirements.md` — decisions log (what & why)
 - `docs/design.md` — architecture, input format, reward, model init, **M0 scope**
