@@ -112,10 +112,11 @@ confirmation** on `optimal.pt`: **97.6%** (avg 3.72 guesses, 12 fails).
 - **Hardware:** MacBook Pro M4 Max / 36 GB, PyTorch MPS. ~6–8 s/iter at batch 2,048.
 - **Eval:** greedy (argmax) over all 2,315 answers as secrets; opener fixed `salet`.
 - **Target:** 100% aspirational (measured on **full vocab**).
-- **Entropy (exploration) sweet spot:** `0.01` collapses too fast → plateau (row 5); `0.03`
-  is too high → policy never concentrates, no learning (row 6); `0.02` is the current middle
-  ground under test (row 7). Diagnostic: watch whether entropy *drops steadily* (good) or
-  *stays near max ~7.75* (too high).
+- **Entropy (exploration) sweet spot — `0.02`, now the default (`config.py`).** `0.01`
+  collapses too fast → plateau (row 5); `0.03` is too high → policy never concentrates, no
+  learning (row 6); `0.02` is the verified middle ground (row 7: 98.3% answer-pool). Diagnostic:
+  watch whether entropy *drops steadily* (good) or *stays near max ~7.75* (too high). Override
+  per-run with `--entropy`.
 
 ## Key finding
 The **letter-grounded head** enables generalization. The **free per-word head memorizes**

@@ -38,7 +38,7 @@ class PPOConfig:
     lr: float = 3e-4
     clip: float = 0.2
     value_coef: float = 0.5
-    entropy_coef: float = 0.01
+    entropy_coef: float = 0.02   # verified sweet spot: 0.01 collapses, 0.03 too high (docs/results.md)
     gamma: float = 0.99
     gae_lambda: float = 0.95
     kl_target: float = 0.02
