@@ -13,6 +13,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest",
+    "playwright",   # browser driver for play_web.py (run `uv run playwright install chromium` once)
 ]
 
 [tool.uv]

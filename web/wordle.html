@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>wm · Wordle</title>
+<style>
+  :root{--g:#6aaa64;--y:#c9b458;--b:#787c7e;--bg:#121213}
+  *{box-sizing:border-box}
+  body{margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;
+       justify-content:center;gap:16px;background:var(--bg);color:#fff;
+       font-family:'Helvetica Neue',Arial,sans-serif}
+  h1{font-weight:700;letter-spacing:.18em;margin:0;font-size:22px}
+  .row{display:flex;gap:6px}
+  #board{display:flex;flex-direction:column;gap:6px}
+  .tile{width:58px;height:58px;display:flex;align-items:center;justify-content:center;
+        font-size:30px;font-weight:700;text-transform:uppercase;border:2px solid #3a3a3c;color:#fff}
+  .tile[data-state="tbd"]{border-color:#565758}
+  .tile[data-state="absent"]{background:var(--b);border-color:var(--b)}
+  .tile[data-state="present"]{background:var(--y);border-color:var(--y)}
+  .tile[data-state="correct"]{background:var(--g);border-color:var(--g)}
+  #message{min-height:20px;font-size:15px;color:#d0d0d0}
+</style>
+</head>
+<body>
+  <h1>WORDLE</h1>
+  <div id="board"></div>
+  <div id="message"></div>
+<script>
+(function(){
+  const ROWS = 6, COLS = 5;
+  const answers = window.WM_ANSWERS || [];
+  const allowed = new Set(window.WM_ALLOWED || []);
+  const seed = window.WM_SEED;
+  const answer = answers.length
+    ? answers[seed == null ? Math.floor(Math.random() * answers.length) : seed % answers.length]
+    : null;
+
+  const board = document.getElementById('board'), msg = document.getElementById('message');
+  const tiles = [];
+  for (let r = 0; r < ROWS; r++) {
+    const row = document.createElement('div'); row.className = 'row'; row.id = 'row-' + r;
+    const rt = [];
+    for (let c = 0; c < COLS; c++) {
+      const t = document.createElement('div'); t.className = 'tile';
+      row.appendChild(t); rt.push(t);
+    }
+    board.appendChild(row); tiles.push(rt);
+  }
+
+  let cur = 0, typed = '';
+  window.WM = { turn: 0, status: 'playing', answer: null };
+
+  function score(guess) {            // duplicate-aware Wordle feedback
+    const res = Array(COLS).fill('absent'), a = answer.split('');
+    for (let i = 0; i < COLS; i++) if (guess[i] === a[i]) { res[i] = 'correct'; a[i] = null; }
+    for (let i = 0; i < COLS; i++) {
+      if (res[i] === 'correct') continue;
+      const j = a.indexOf(guess[i]); if (j >= 0) { res[i] = 'present'; a[j] = null; }
+    }
+    return res;
+  }
+  function render() {
+    for (let c = 0; c < COLS; c++) {
+      const t = tiles[cur][c];
+      t.textContent = typed[c] || '';
+      if (typed[c]) t.dataset.state = 'tbd'; else t.removeAttribute('data-state');
+    }
+  }
+  function submit() {
+    if (typed.length < COLS) { msg.textContent = 'Not enough letters'; return; }
+    if (allowed.size && !allowed.has(typed)) { msg.textContent = 'Not in word list'; return; }
+    const res = score(typed);
+    for (let c = 0; c < COLS; c++) { tiles[cur][c].dataset.state = res[c]; tiles[cur][c].textContent = typed[c]; }
+    cur++; window.WM.turn = cur;
+    if (res.every(s => s === 'correct')) { window.WM.status = 'won'; window.WM.answer = answer; msg.textContent = 'Solved in ' + cur + '!'; }
+    else if (cur >= ROWS) { window.WM.status = 'lost'; window.WM.answer = answer; msg.textContent = 'The word was ' + answer.toUpperCase(); }
+    typed = '';
+  }
+  document.addEventListener('keydown', e => {
+    if (window.WM.status !== 'playing') return;
+    if (e.key === 'Enter') submit();
+    else if (e.key === 'Backspace') { typed = typed.slice(0, -1); render(); }
+    else if (/^[a-zA-Z]$/.test(e.key) && typed.length < COLS) { typed += e.key.toLowerCase(); render(); }
+  });
+})();
+</script>
+</body>
+</html>

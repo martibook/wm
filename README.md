@@ -51,6 +51,19 @@ uv run play.py --n 100 --ckpt runs/<run>/checkpoints/latest.pt --seed 0
 | `--quiet` | summary only, no live showcase | off |
 | `--slow` | animate tile-by-tile | off |
 
+### Play in a real browser
+
+Watch the model play in a **visible browser**, like a person: it types the opener `salet`,
+reads the tile colors off the rendered board, and picks each next guess (it never sees the
+answer). The board (`web/wordle.html`) is fed the model's own word lists, so every guess is valid.
+
+```bash
+uv run playwright install chromium      # one-time: fetch the browser binary
+uv run play_web.py --ckpt runs/<run>/checkpoints/optimal.pt --games 5
+```
+
+`--seed N` fixes the answer, `--slow MS` paces the typing, `--headless` hides the window.
+
 ## Project status
 
 **M0** — game scaffold + `play` runner, no ML — **done**:
