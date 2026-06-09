@@ -57,6 +57,8 @@ Watch the model play in a **visible browser**, like a person: it types the opene
 reads the tile colors off the rendered board, and picks each next guess (it never sees the
 answer). The board (`web/wordle.html`) is fed the model's own word lists, so every guess is valid.
 
+<p align="center"><img src="docs/wm-play.gif" alt="the model solving Wordle in a browser" width="320"></p>
+
 ```bash
 uv run playwright install chromium      # one-time: fetch the browser binary
 uv run play_web.py --ckpt runs/<run>/checkpoints/optimal.pt --games 5

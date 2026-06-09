@@ -53,6 +53,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=None, help="answer index (omit = random each game)")
     ap.add_argument("--slow", type=int, default=700, help="ms pause between guesses")
     ap.add_argument("--headless", action="store_true", help="hide the browser (default: visible)")
+    ap.add_argument("--record", default=None, help="dir to save a video of the session (.webm)")
     args = ap.parse_args()
 
     from playwright.sync_api import sync_playwright
@@ -61,11 +62,15 @@ def main() -> None:
     agent = ModelAgent.from_checkpoint(args.ckpt, wl)
     inject = f"window.WM_ANSWERS={list(wl.answers)!r}; window.WM_ALLOWED={list(wl.allowed)!r};" \
              + ("" if args.seed is None else f" window.WM_SEED={args.seed};")
+    viewport = {"width": 460, "height": 700}
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=args.headless)
-        page = browser.new_page(viewport={"width": 460, "height": 700})
-        page.add_init_script(inject)
+        ctx = browser.new_context(viewport=viewport,
+                                  **({"record_video_dir": args.record, "record_video_size": viewport}
+                                     if args.record else {}))
+        ctx.add_init_script(inject)
+        page = ctx.new_page()
         wins = 0
         for g in range(args.games):
             page.goto(HTML)
@@ -74,6 +79,7 @@ def main() -> None:
             print(f"game {g + 1}: {'WON in ' + str(n) if won else 'LOST'}  (answer {page.evaluate('window.WM.answer')})")
             page.wait_for_timeout(args.slow * 2)
         print(f"\n{wins}/{args.games} solved")
+        ctx.close()      # finalizes the video file
         browser.close()
 
 
